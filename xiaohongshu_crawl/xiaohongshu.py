@@ -10,11 +10,96 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 
+# 数据库配置
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'rootroot',  # 请修改为你的实际密码
+    'db': 'xiaohongshu',  # 请修改为你的实际数据库名
+    'charset': 'utf8mb4',
+    'cursorclass': DictCursor
+}
 
+def get_db_connection():
+    """获取数据库连接"""
+    try:
+        connection = pymysql.connect(**DB_CONFIG)
+        print("数据库连接成功")
+        return connection
+    except Exception as e:
+        print(f"数据库连接失败: {e}")
+        return None
 
+def ensure_table_exists(connection):
+    """确保数据表存在，如不存在则创建"""
+    create_table_sql = """
+    CREATE TABLE IF NOT EXISTS xiaohongshu_notes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        author VARCHAR(100) NOT NULL,
+        full_link VARCHAR(500) NOT NULL,
+        like_count VARCHAR(100),
+        cover_pic VARCHAR(500),
+        author_img VARCHAR(500),
+        keyword VARCHAR(500),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(create_table_sql)
+        connection.commit()
+        print("表结构检查/创建完成")
+        return True
+    except Exception as e:
+        print(f"表结构检查/创建失败: {e}")
+        return False
 
-
-
+def save_to_mysql(contents, keyword, connection):
+    """保存数据到MySQL数据库，并处理重复项"""
+    if not connection:
+        print("数据库连接不可用，跳过MySQL保存")
+        return False
+    
+    if not ensure_table_exists(connection):
+        return False
+    
+    # 插入数据的SQL
+    insert_sql = """
+    INSERT INTO xiaohongshu_notes (title, author, full_link, like_count, cover_pic, author_img, keyword)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE 
+    title = VALUES(title),
+    author = VALUES(author),
+    like_count = VALUES(like_count),
+    cover_pic = VALUES(cover_pic),
+    author_img = VALUES(author_img),
+    keyword = VALUES(keyword);
+    """
+    
+    inserted_count = 0
+    try:
+        with connection.cursor() as cursor:
+            for item in contents:
+                title, author, full_link, like_count, cover_pic, author_img = item
+                
+                # 尝试插入数据
+                try:
+                    cursor.execute(insert_sql, (
+                        title, author, full_link, like_count, cover_pic, author_img, keyword
+                    ))
+                    inserted_count += 1
+                except Exception as e:
+                    print(f"插入记录失败: {e}, 链接: {full_link[:30]}...")
+        
+        # 提交事务
+        connection.commit()
+        print(f"成功保存到MySQL: {inserted_count}条记录")
+        return True
+    except Exception as e:
+        print(f"保存到MySQL失败: {e}")
+        connection.rollback()
+        return False
 
 
 
@@ -187,19 +272,32 @@ if __name__ == '__main__':
     current_batch = 1
     keyword_encoded = quote(quote(keyword.encode('utf-8')).encode('gb2312'))
     
-    while current_batch <= total_batches:
-        try:
-            print(f"\n开始抓取第 {current_batch} 批次...")
-            contents = []
-            search(keyword_encoded)
-            # craw(1)  # 每批次抓取一页
-            adaptive_craw()
+    # 建立数据库连接
+    db_connection = get_db_connection()
+
+    try:
+        while current_batch <= total_batches:
+            try:
+                print(f"\n开始抓取第 {current_batch} 批次...")
+                contents = []
+                search(keyword_encoded)
+                # craw(1)  # 每批次抓取一页
+                adaptive_craw()
+                
+                if contents:
+                    save_to_csv(contents, keyword)
+
+                # 同时保存到MySQL
+                if db_connection:
+                    save_to_mysql(contents, keyword, db_connection)
             
-            if contents:
-                save_to_csv(contents, keyword)
-            
-            current_batch += 1
-            time.sleep(random.uniform(2, 5))  
-        except Exception as e:
-            print(f"批次 {current_batch} 抓取失败: {e}")
-            break
+                current_batch += 1
+                time.sleep(random.uniform(2, 5))  
+            except Exception as e:
+                print(f"批次 {current_batch} 抓取失败: {e}")
+                break
+    finally:
+    # 关闭数据库连接
+        if db_connection:
+            db_connection.close()
+            print("数据库连接已关闭")
