@@ -216,17 +216,7 @@ def page_scroll_down():
     time.sleep(random.uniform(0.5, 1.5))
     page.scroll.to_bottom()
 
-# def craw(times):
-#     """循环爬取"""
-#     for i in tqdm(range(times)):
-#         retries = 2
-#         for attempt in range(retries):
-#             try:
-#                 get_info()
-#                 break
-#             except Exception as e:
-#                 print(f"第 {attempt + 1} 次尝试失败，错误: {e}")
-#         page_scroll_down()
+
 
 def adaptive_craw(max_scrolls=20, min_new_items=5):
     """自适应爬取：如果新内容足够多就继续滚动，否则停止"""
@@ -249,7 +239,7 @@ def adaptive_craw(max_scrolls=20, min_new_items=5):
             get_info()
             page_scroll_down()
             scroll_count += 1
-            time.sleep(random.uniform(1, 2))  # 随机等待时间
+            time.sleep(random.uniform(0.5, 1.5))  # 随机等待时间
             
         except Exception as e:
             print(f"滚动过程中出错: {e}")
@@ -274,7 +264,7 @@ def save_to_csv(contents, keyword):
 
 if __name__ == '__main__':
     contents = []
-    keyword = "啤酒"
+    keyword = "特斯拉"
     total_batches = 20  # 总批次数
     current_batch = 1
     keyword_encoded = quote(quote(keyword.encode('utf-8')).encode('gb2312'))
@@ -292,7 +282,7 @@ if __name__ == '__main__':
                 if db_connection:
                     save_to_mysql(contents, keyword, db_connection)
                 current_batch += 1
-                time.sleep(random.uniform(2, 5))  
+                time.sleep(random.uniform(1, 2.2))  
             except Exception as e:
                 print(f"批次 {current_batch} 抓取失败: {e}")
                 break
