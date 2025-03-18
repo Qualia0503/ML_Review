@@ -64,13 +64,6 @@ def save_to_mysql(contents, keyword, connection):
     if not ensure_table_exists(connection):
         return False
     
-    # 创建DataFrame用于去重
-    name = ['title', 'author', 'full_link','like_count', 'cover_pic', 'author_img']
-    df = pd.DataFrame(contents, columns=name)
-    
-    # 去重，基于full_link
-    df = df.drop_duplicates(subset=['full_link'], keep='first')
-    
     # 插入数据的SQL
     insert_sql = """
     INSERT INTO xiaohongshu_notes (title, author, full_link, like_count, cover_pic, author_img, keyword)
@@ -87,8 +80,8 @@ def save_to_mysql(contents, keyword, connection):
     inserted_count = 0
     try:
         with connection.cursor() as cursor:
-            for index, row in df.iterrows():
-                title, author, full_link, like_count, cover_pic, author_img = row
+            for item in contents:
+                title, author, full_link, like_count, cover_pic, author_img = item
                 
                 # 尝试插入数据
                 try:
@@ -260,21 +253,21 @@ def save_to_csv(contents, keyword):
     filename = f'{keyword}_data.csv'
     name = ['title', 'author', 'full_link','like_count', 'cover_pic', 'author_img']
     
-    new_df = pd.DataFrame(contents, columns=name)
+    new_df = pd.DataFrame(columns=name, data=contents)
     
     # 如果CSV文件存在，读取已有数据并合并去重
     if os.path.exists(filename):
         existing_df = pd.read_csv(filename, encoding='utf-8-sig')
-        combined_df = pd.concat([existing_df, new_df], ignore_index=True).drop_duplicates(subset=['full_link'], keep='first') # 去重基于full_link
+        combined_df = pd.concat([existing_df, new_df], ignore_index=True).drop_duplicates()
     else:
-        combined_df = new_df.drop_duplicates(subset=['full_link'], keep='first') # 去重基于full_link
+        combined_df = new_df.drop_duplicates()
     
     combined_df.to_csv(filename, index=False, encoding='utf-8-sig')
     print(f"数据已去重并保存至 {filename}，总条数: {len(combined_df)}")
 
 if __name__ == '__main__':
     contents = []
-    keyword = "啤酒"
+    keyword = "面包"
     total_batches = 20  # 总批次数
     current_batch = 1
     keyword_encoded = quote(quote(keyword.encode('utf-8')).encode('gb2312'))
@@ -286,17 +279,25 @@ if __name__ == '__main__':
         while current_batch <= total_batches:
             try:
                 print(f"\n开始抓取第 {current_batch} 批次...")
+                contents = []
                 search(keyword_encoded)
+                # craw(1)  # 每批次抓取一页
                 adaptive_craw()
-                save_to_csv(contents, keyword)
+                
+                if contents:
+                    save_to_csv(contents, keyword)
+
+                # 同时保存到MySQL
                 if db_connection:
                     save_to_mysql(contents, keyword, db_connection)
+            
                 current_batch += 1
                 time.sleep(random.uniform(2, 5))  
             except Exception as e:
                 print(f"批次 {current_batch} 抓取失败: {e}")
                 break
     finally:
+    # 关闭数据库连接
         if db_connection:
             db_connection.close()
             print("数据库连接已关闭")
