@@ -264,7 +264,7 @@ def save_to_csv(contents, keyword):
 
 if __name__ == '__main__':
     contents = []
-    keyword = "北京旅游文创纪念品"
+    keyword = "北京寺庙游"
     total_batches = 10  # 总批次数
     current_batch = 1
     keyword_encoded = quote(quote(keyword.encode('utf-8')).encode('gb2312'))
