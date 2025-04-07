@@ -3,6 +3,7 @@ import logging
 import time
 import random
 import re
+import json
 from urllib.parse import urljoin
 from datetime import datetime, timedelta
 import threading
@@ -10,6 +11,7 @@ from models.database import Database
 from models.note import Note
 from utils.browser_utils import random_sleep, simulate_human_behavior
 from utils.file_utils import read_links_from_txt, export_to_excel
+from controllers.comments_controller import CommentsController
 
 class DetailController:
     def __init__(self, browser_controller):
@@ -17,7 +19,9 @@ class DetailController:
         self.db = Database()
         self.pause_flag = False
         self.resume_event = threading.Event()
-        self.consecutive_empty_count = 0  # 新增：连续空值计数器
+        self.consecutive_empty_count = 0  # 连续空值计数器
+        # 实例化评论控制器
+        self.comments_controller = CommentsController(browser_controller)
     
     def get_note_detail(self, url):
         """获取笔记详情"""
@@ -100,6 +104,15 @@ class DetailController:
                 'image_links': image_links,
                 'note_link': url
             }
+            
+            # 获取评论数据
+            try:
+                comments_json = self.comments_controller.get_comments(page, note_detail['comment_count'])
+                note_detail['comments'] = comments_json
+                logging.info(f"成功获取评论数据: {len(json.loads(comments_json))} 条")
+            except Exception as e:
+                logging.error(f"获取评论数据失败: {str(e)}")
+                note_detail['comments'] = json.dumps([])
             
             # 检查是否所有重要字段都为空
             empty_fields = self._check_empty_fields(note_detail)
@@ -236,7 +249,7 @@ class DetailController:
                 
                 # 每处理10个链接休息一次，避免被反爬
                 if (index + 1) % 10 == 0 and index < total_links - 1:
-                    rest_time = random.uniform(20, 30)
+                    rest_time = random.uniform(5, 10)
                     print(f"已处理10个链接，休息 {rest_time:.1f} 秒，避免被反爬...")
                     time.sleep(rest_time)
                 else:
