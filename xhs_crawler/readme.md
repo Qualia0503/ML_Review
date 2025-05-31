@@ -10,7 +10,8 @@ python main.py --mode init
 keyword，即要查的关键词； batch，即抓取几轮， 一般建议10批次，热门的词可以20批次，超过20批次没有意义；
 一般抓取200个笔记详情，需要大约1-2天的时间，提前去规划分配你的项目模块；
 
-python main.py --mode search --keyword "北京的美食" --batch 2
+python main.py --mode search --keyword "万森男士" --batch 10
+python main.py --mode search --keyword "尤司男士" --batch 10
 
 第四步：抓取笔记深层信息的，如内容，点赞，收藏，转发等；
 python main.py --mode detail --links "北京的美食_笔记链接_2025-04-07.txt"
